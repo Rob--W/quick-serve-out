@@ -102,6 +102,11 @@ textarea {
 </form>
 """.replace(b"%", b"%%").replace(b"ERROR_HERE", b"%s")  # NOQA
 
+if hasattr(sys.stdout, "buffer"):  # Py3
+    def write_bytes(f, b): f.buffer.write(b)
+else:  # Py2
+    def write_bytes(f, b): f.write(b)
+
 
 class HTTPSHTTPServer(HTTPServer):
     """
@@ -201,27 +206,34 @@ class RequestHandler(SilentHTTPRequestHandler):
             DEFAULT_INDEX_HTML % b"Server will close after submission")
 
     def do_POST(self):
-        if self.headers.gettype() == "multipart/form-data":
+        try:  # Py3
+            content_type = self.headers.get_content_type()
+        except AttributeError:  # Py2
+            content_type = self.headers.gettype()
+        if content_type == "multipart/form-data":
             self._handle_multipart_formdata()
-        elif self.headers.gettype() == "application/x-www-form-urlencoded":
+        elif content_type == "application/x-www-form-urlencoded":
             # For now, do not attempt to parse the body.
             self._handle_raw_post()
         else:
             self._handle_raw_post()
 
     def _handle_multipart_formdata(self):
-        boundary = self.headers.getparam("boundary")
+        try:  # Py3
+            boundary = self.headers.get_param("boundary")
+        except AttributeError:  # Py2
+            boundary = self.headers.getparam("boundary")
         if not boundary:
             self.send_error(400, "boundary not found in Content-Type header")
             return
 
-        dash_boundary = b"--" + boundary
+        dash_boundary = b"--" + boundary.encode("ascii")
         delimiter = b"\r\n" + dash_boundary
         close_delimiter = delimiter + b"--"
 
         # Pattern to retrieve form name.
         r_cd_form_part_name = re.compile(
-            "^\r\nContent-Disposition: form-data(?=;).*[; ]name=\"([^\"]+)\"",
+            b"^\r\nContent-Disposition: form-data(?=;).*[; ]name=\"([^\"]+)\"",
             flags=re.IGNORECASE)
 
         STATE_BEFORE_BODY = 0
@@ -261,12 +273,13 @@ class RequestHandler(SilentHTTPRequestHandler):
                     continue
                 match = r_cd_form_part_name.match(chunk)
                 if match:
-                    part_name = match.group(1)
-                    filename = cgi.parse_header(chunk)[1].get("filename", "")
+                    part_name = match.group(1).decode("ascii")
+                    _, parts = cgi.parse_header(chunk.decode("ascii"))
+                    filename = parts.get("filename", "")
                 continue
 
             if state == STATE_MULTIPART_HEAD_END:
-                assert chunk.startswith("\r\n")
+                assert chunk.startswith(b"\r\n")
                 chunk = chunk[2:]
                 state = STATE_MULTIPART_BODY
 
@@ -274,7 +287,7 @@ class RequestHandler(SilentHTTPRequestHandler):
                 if not did_print_file_info and (chunk or filename):
                     did_print_file_info = True
                     sys.stderr.write("Received file: \"%s\"" % filename)
-                sys.stdout.write(chunk)
+                write_bytes(sys.stdout, chunk)
             elif part_name == "text":
                 if not did_print_text_info and chunk:
                     did_print_text_info = True
@@ -286,9 +299,9 @@ class RequestHandler(SilentHTTPRequestHandler):
                 if did_print_file_info:
                     # If a file was already given, put the text in stderr
                     # so that the file can be obtained through piping.
-                    sys.stderr.write(chunk)
+                    write_bytes(sys.stderr, chunk)
                 else:
-                    sys.stdout.write(chunk)
+                    write_bytes(sys.stdout, chunk)
             else:
                 self.send_error(400, "Unknown field \"%s\"" % part_name)
                 return
@@ -320,7 +333,7 @@ class RequestHandler(SilentHTTPRequestHandler):
         while bodylen > 0:
             data = self.rfile.read(min(BUF_LEN, bodylen))
             bodylen -= len(data)
-            sys.stdout.write(data)
+            write_bytes(sys.stdout, data)
 
         sys.stdout.flush()
 
@@ -337,6 +350,8 @@ class RequestHandler(SilentHTTPRequestHandler):
         """
         Iterator over response body stream. Each chunk contains no CRLF,
         except possibly at the start of each yielded chunk.
+
+        Yields chunks of type type(b"")
         """
         # The maximum size of the buffer. This value is chosen such that a full
         # header line fits (at the very least the boundary separator!), and
@@ -362,7 +377,7 @@ class RequestHandler(SilentHTTPRequestHandler):
                 i = buffer.find(CR, i + 1)
                 if i == -1:
                     break
-                if i == finali or buffer[i + 1] == LF:
+                if i == finali or buffer[i + 1:i + 2] == LF:
                     yield buffer[previ:i]
                     previ = i
                 # Otherwise it is certainly a CR without LF. Skip to next CR.
