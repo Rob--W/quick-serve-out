@@ -419,9 +419,13 @@ if __name__ == "__main__":
         Defaults to the path provided by --certfile.
         """)
     args = parser.parse_args()
+    if args.allow_http:
+        HTTPRequestHandlerClass = RequestHandler
+    else:
+        HTTPRequestHandlerClass = RedirectToHttpsHandler
     server = HTTPSHTTPServer(
             ("", args.port),
-            HTTPRequestHandlerClass=RedirectToHttpsHandler,
+            HTTPRequestHandlerClass=HTTPRequestHandlerClass,
             HTTPSRequestHandlerClass=RequestHandler,
             certfile="/tmp/certs/localhost.crt",
             keyfile="/tmp/certs/localhost.key")
