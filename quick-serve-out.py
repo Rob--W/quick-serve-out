@@ -37,6 +37,7 @@ try:  # Py3
 except ImportError:  # Py2
     from BaseHTTPServer import HTTPServer, BaseHTTPRequestHandler
 import cgi
+import os
 import re
 import socket
 import ssl
@@ -407,7 +408,7 @@ if __name__ == "__main__":
         help="Allow the form to be used over HTTP (instead of HTTPS only)")
     parser.add_argument(
         "--certfile", metavar="FILE",
-        default=("%s/localhost.pem" % sys.path[0]),
+        default=os.path.join(sys.path[0], "localhost.pem"),
         help="""
         Path to the SSL certificate for HTTPS.
         Defaults to %(default)s.
