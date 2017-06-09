@@ -427,6 +427,6 @@ if __name__ == "__main__":
             ("", args.port),
             HTTPRequestHandlerClass=HTTPRequestHandlerClass,
             HTTPSRequestHandlerClass=RequestHandler,
-            certfile="/tmp/certs/localhost.crt",
-            keyfile="/tmp/certs/localhost.key")
+            certfile=args.certfile,
+            keyfile=args.keyfile)
     server.serve_forever()
