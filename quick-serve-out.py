@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+from __future__ import print_function
 
 """
 Provides a server with a simple interface to request and receive text
@@ -160,6 +161,20 @@ class HTTPSHTTPServer(HTTPServer):
         task = threading.Thread(target=self.shutdown)
         task.daemon = True  # Don't wait for this thread before exiting.
         task.start()
+
+    def handle_error(self, request, client_address):
+        """
+        From https://github.com/python/cpython/blob/3.6/Lib/socketserver.py
+        This is because in Py2, the default implementation prints to stdout.
+        https://hg.python.org/cpython/file/2.7/Lib/SocketServer.py#l341
+        Ugh.
+        """
+        print('-'*40, file=sys.stderr)
+        print('Exception happened during processing of request from',
+              client_address, file=sys.stderr)
+        import traceback
+        traceback.print_exc()
+        print('-'*40, file=sys.stderr)
 
 
 class SilentHTTPRequestHandler(BaseHTTPRequestHandler):
