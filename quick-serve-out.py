@@ -29,7 +29,7 @@ File sharing:
 
 Via curl instead of a web browser:
 1. %(prog)s PORT
-2. echo or cat anything | curl https://youriphere:PORT -d @-
+2. echo or cat anything | curl https://youriphere:PORT --data-binary @-
 3. Look at stdout.
 """  # NOQA
 
