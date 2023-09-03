@@ -37,7 +37,6 @@ try:  # Py3
     from http.server import HTTPServer, BaseHTTPRequestHandler
 except ImportError:  # Py2
     from BaseHTTPServer import HTTPServer, BaseHTTPRequestHandler
-import cgi
 import os
 import re
 import socket
@@ -290,8 +289,27 @@ class RequestHandler(SilentHTTPRequestHandler):
                 match = r_cd_form_part_name.match(chunk)
                 if match:
                     part_name = match.group(1).decode("ascii")
-                    _, parts = cgi.parse_header(chunk.decode("ascii"))
-                    filename = parts.get("filename", "")
+                    # The form is in a utf-8 document, so filename can contain
+                    # utf-8 that is not escaped further.
+                    try:
+                        cd_header_line = chunk.decode("utf-8")
+                    except ValueError as e:
+                        sys.stderr.write("Failed to decode filename: %s\n" % e)
+                        continue
+                    # In practice, filename= is the last part, so we don't
+                    # need to parse further params (i.e. split ; and ").
+                    # - Chrome: cs.chromium.org/AddFilenameToMultiPartHeader
+                    # - Firefox: https://searchfox.org/mozilla-central/rev/d3e6d914c9a9c4a3dbc976df9e5e942cf4d20862/dom/html/HTMLFormSubmission.cpp#516-520
+                    _, _, val = cd_header_line.partition("; filename=")
+                    if val.startswith("\"") and val.endswith("\""):
+                        val = val[1:-1]
+                    # RFC 7578 and https://github.com/whatwg/html/pull/6282
+                    # describe additional encodings such as " -> %22. Since
+                    # utf-8 encoding covers all practical cases, and the
+                    # filename here is informational only, we don't process
+                    # any more input.
+                    if val:
+                        filename = val
                 continue
 
             if state == STATE_MULTIPART_HEAD_END:
