@@ -257,6 +257,7 @@ class RequestHandler(SilentHTTPRequestHandler):
         STATE_MULTIPART_BODY = 3
         state = STATE_BEFORE_BODY
         part_name = ""
+        filename = None
         did_print_file_info = False
         did_print_text_info = False
 
