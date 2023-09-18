@@ -125,11 +125,24 @@ class HTTPSHTTPServer(HTTPServer):
                             HTTPRequestHandlerClass,
                             bind_and_activate)
         self.HTTPSRequestHandlerClass = HTTPSRequestHandlerClass
-        self.keyfile = keyfile
-        self.certfile = certfile
 
         if not certfile:
             raise ValueError("certfile must be specified")
+
+        # Use SSLContext.wrap_socket instead of deprecated ssl.wrap_socket.
+        if hasattr(ssl, "create_default_context"):
+            context = ssl.create_default_context(ssl.Purpose.CLIENT_AUTH)
+            context.load_cert_chain(certfile=certfile, keyfile=keyfile)
+
+            def ssl_wrap_socket(sock):
+                return context.wrap_socket(sock, server_side=True)
+        else:
+            def ssl_wrap_socket(sock):
+                return ssl.wrap_socket(sock,
+                                       keyfile=keyfile,
+                                       certfile=certfile,
+                                       server_side=True)
+        self.ssl_wrap_socket = ssl_wrap_socket
 
     def get_request(self):
         newsock, addr = self.socket.accept()
@@ -137,10 +150,9 @@ class HTTPSHTTPServer(HTTPServer):
         if firstbyte == b"\x16":
             # This is a TLS handshake
             # https://tools.ietf.org/html/rfc5246#appendix-A.1
-            newsock = ssl.wrap_socket(newsock,
-                                      keyfile=self.keyfile,
-                                      certfile=self.certfile,
-                                      server_side=True)
+
+            newsock = self.ssl_wrap_socket(newsock)
+
         return (newsock, addr)
 
     def finish_request(self, request, client_address):
