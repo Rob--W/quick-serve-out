@@ -1,5 +1,4 @@
-#!/usr/bin/env python
-from __future__ import print_function
+#!/usr/bin/env python3
 
 """
 Provides a server with a simple interface to request and receive text
@@ -33,10 +32,7 @@ Via curl instead of a web browser:
 3. Look at stdout.
 """  # NOQA
 
-try:  # Py3
-    from http.server import HTTPServer, BaseHTTPRequestHandler
-except ImportError:  # Py2
-    from BaseHTTPServer import HTTPServer, BaseHTTPRequestHandler
+from http.server import HTTPServer, BaseHTTPRequestHandler
 import os
 import re
 import socket
@@ -46,12 +42,11 @@ import threading
 
 """
 Relevant related sources:
-https://hg.python.org/cpython/file/2.7/Lib/BaseHTTPServer.py
-https://hg.python.org/cpython/file/2.7/Lib/SocketServer.py
-https://hg.python.org/cpython/file/2.7/Lib/ssl.py
+https://github.com/python/cpython/blob/3.14.4/Lib/SocketServer.py
+https://github.com/python/cpython/blob/3.11/Lib/ssl.py
 https://github.com/python/cpython/blob/3.6/Lib/http/server.py
 
-https://docs.python.org/2/library/socket.html
+https://docs.python.org/3/library/socket.html
 
 Multipart form parsing:
 https://tools.ietf.org/html/rfc2046#page-43
@@ -103,10 +98,8 @@ textarea {
 </form>
 """.replace(b"%", b"%%").replace(b"ERROR_HERE", b"%s")  # NOQA
 
-if hasattr(sys.stdout, "buffer"):  # Py3
-    def write_bytes(f, b): f.buffer.write(b)
-else:  # Py2
-    def write_bytes(f, b): f.write(b)
+
+def write_bytes(f, b): f.buffer.write(b)
 
 
 class HTTPSHTTPServer(HTTPServer):
@@ -130,7 +123,10 @@ class HTTPSHTTPServer(HTTPServer):
             raise ValueError("certfile must be specified")
 
         # Use SSLContext.wrap_socket instead of deprecated ssl.wrap_socket.
+        # wrap_socket was dropped in Python 3.12 after raising deprecation
+        # warnings since Python 3.10.
         if hasattr(ssl, "create_default_context"):
+            # create_default_context is available since Python 3.4.
             context = ssl.create_default_context(ssl.Purpose.CLIENT_AUTH)
             context.load_cert_chain(certfile=certfile, keyfile=keyfile)
 
@@ -176,8 +172,8 @@ class HTTPSHTTPServer(HTTPServer):
     def handle_error(self, request, client_address):
         """
         From https://github.com/python/cpython/blob/3.6/Lib/socketserver.py
-        This is because in Py2, the default implementation prints to stdout.
-        https://hg.python.org/cpython/file/2.7/Lib/SocketServer.py#l341
+        Before Python 3.6, the default implementation printed to stdout:
+        https://github.com/python/cpython/blob/v3.5.10/Lib/socketserver.py#L364
         Ugh.
         """
         print('-'*40, file=sys.stderr)
@@ -233,10 +229,7 @@ class RequestHandler(SilentHTTPRequestHandler):
             DEFAULT_INDEX_HTML % b"Server will close after submission")
 
     def do_POST(self):
-        try:  # Py3
-            content_type = self.headers.get_content_type()
-        except AttributeError:  # Py2
-            content_type = self.headers.gettype()
+        content_type = self.headers.get_content_type()
         if content_type == "multipart/form-data":
             self._handle_multipart_formdata()
         elif content_type == "application/x-www-form-urlencoded":
@@ -246,10 +239,7 @@ class RequestHandler(SilentHTTPRequestHandler):
             self._handle_raw_post()
 
     def _handle_multipart_formdata(self):
-        try:  # Py3
-            boundary = self.headers.get_param("boundary")
-        except AttributeError:  # Py2
-            boundary = self.headers.getparam("boundary")
+        boundary = self.headers.get_param("boundary")
         if not boundary:
             self.send_error(400, "boundary not found in Content-Type header")
             return
