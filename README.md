@@ -40,3 +40,13 @@ Via curl instead of a web browser:
 1. `quick-serve-out.py PORT`
 2. `echo or cat anything | curl https://youriphere:PORT --data-binary @-`
 3. Look at stdout.
+
+Via curl with the file name included during transfer:
+
+1. `quick-serve-out.py PORT > filename`
+2. curl https://youriphere:PORT -F @path/to/file
+3. Look at stderr for the actual name of the uploaded file.
+4. Look at stdout (=piped to filename) for the file content.
+
+Use `curl -k` instead of `curl` to ignore the certificate error from your
+self-signed certificate.

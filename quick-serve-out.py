@@ -30,6 +30,15 @@ Via curl instead of a web browser:
 1. %(prog)s PORT
 2. echo or cat anything | curl https://youriphere:PORT --data-binary @-
 3. Look at stdout.
+
+Via curl and also include file name in stderr:
+1. %(prog)s PORT > filename
+2. `curl https://youriphere:PORT -F @path/to/file`
+3. Look at stderr for the actual name of the uploaded file.
+4. Look at stdout (=piped to filename) for the file content.
+
+Use curl -k instead of curl to ignore the certificate error from your
+self-signed certificate.
 """  # NOQA
 
 from http.server import HTTPServer, BaseHTTPRequestHandler
@@ -323,7 +332,7 @@ class RequestHandler(SilentHTTPRequestHandler):
             if part_name == "file":
                 if not did_print_file_info and (chunk or filename):
                     did_print_file_info = True
-                    sys.stderr.write("Received file: \"%s\"" % filename)
+                    sys.stderr.write("Received file: \"%s\"\n" % filename)
                 write_bytes(sys.stdout, chunk)
             elif part_name == "text":
                 if not did_print_text_info and chunk:
