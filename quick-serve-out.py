@@ -2,7 +2,7 @@
 
 """
 Provides a server with a simple interface to request and receive text
-or a file from another endpoint in your network. The result is send to
+or a file from another endpoint in your network. The result is sent to
 the standard output.
 """
 
